@@ -1,23 +1,44 @@
 const graphql = require('graphql');
-const _ = require('lodash');
+const axios = require('axios');
 const {
   GraphQLObjectType,
   GraphQLString,
   GraphQLInt,
   GraphQLSchema,
+  GraphQLList
 } = graphql;
 
-const users = [
-  { id: '23', firstName: 'Bill', age: 20},
-  { id: '47', firstName: 'Samantha', age: 22 }
-]
+const CompanyType = new GraphQLObjectType({
+  name: 'Company',
+  fields: () => ({
+    id: { type: GraphQLString },
+    name: { type: GraphQLString },
+    description: { type: GraphQLString },
+    users: {
+      type: new GraphQLList(UserType),
+      resolve(parentValue, args) {
+        return axios.get(`http://localhost:3000/companies/${parentValue.id}/users`)
+          .then(resp => resp.data)
+          .catch(err => console.log(err))
+      }
+    }
+  })
+});
 
 const UserType = new GraphQLObjectType({
   name: 'User',
   fields: () => ({
     id: { type: GraphQLString },
     firstName: { type: GraphQLString },
-    age: { type: GraphQLInt }
+    age: { type: GraphQLInt },
+    company: { 
+      type: CompanyType,
+      resolve(parentValue, args) {
+        return axios.get(`http://localhost:3000/companies/${parentValue.companyId}`)
+          .then(resp => resp.data)
+          .catch(err => console.log(err))
+      }
+    }
   })
 })
 
@@ -26,10 +47,23 @@ const RootQuery = new GraphQLObjectType({
   fields: {
     user: {
       type: UserType,
-      args: { id: {type: GraphQLString } },
+      args: { id: { type: GraphQLString } },
       resolve(parentValue, args) {
-        return _.find(users, { id: args.id });
+        let url = `http://localhost:3000/users/${args.id}`
+        return axios.get(url)
+          .then(resp => resp.data)
+          .catch(err => console.log(err))
       }
+    },
+    company: {
+      type: CompanyType,
+      args: { id: { type: GraphQLString } },
+      resolve(parentValue, args) {
+        return axios.get(`http://localhost:3000/companies/${args.id}`)
+          .then(resp => resp.data)
+          .catch(err => console.log(err))
+      } 
+
     }
   }
 })
